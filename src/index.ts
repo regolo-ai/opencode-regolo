@@ -69,6 +69,18 @@ export const RegoloPlugin: Plugin = async (ctx) => {
   return {
     auth: {
       provider: "regolo",
+      loader: async (getAuth, provider) => {
+        const auth = await getAuth()
+        if (!auth || auth.type !== "api") {
+          throw new Error(
+            "No API key found. Run '/connect' and pick 'Regolo' to set up your Regolo AI connection."
+          )
+        }
+        return {
+          apiKey: auth.key,
+          baseURL: REGOLO_API_BASE,
+        }
+      },
       methods: [
         {
           type: "api",
@@ -76,9 +88,15 @@ export const RegoloPlugin: Plugin = async (ctx) => {
           prompts: [
             {
               type: "text",
+              key: "name",
+              message: "Name this key",
+              placeholder: "Regolo",
+            },
+            {
+              type: "text",
               key: "apiKey",
               message: "Enter your Regolo AI API key",
-              placeholder: "rgl-...",
+              placeholder: "sk-...",
               validate: (value: string) => {
                 if (!value || value.trim().length === 0)
                   return "API key is required"
@@ -111,7 +129,7 @@ export const RegoloPlugin: Plugin = async (ctx) => {
         const provider = { ...remoteConfig.provider.regolo }
         const options = { ...(provider.options || {}) }
         delete options.headers
-        options.apiKey = "{auth:regolo}"
+        delete options.apiKey
         provider.options = options
         input.provider = input.provider || {}
         input.provider.regolo = provider

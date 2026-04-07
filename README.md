@@ -79,7 +79,7 @@ Add to your `opencode.json`:
 
 ### 4. First-Time Setup
 
-Once the plugin is loaded, OpenCode will prompt you to connect the Regolo provider, or you can run `/connect regolo`. Enter your API key — it's stored securely in OpenCode's built-in auth vault.
+Once the plugin is loaded, OpenCode will prompt you to connect the Regolo provider, or you can run `/connect` and search for `Regolo`. Enter your API key name and key — it's stored securely in OpenCode's built-in auth vault.
 
 ## Usage
 

@@ -53,6 +53,7 @@ declare module "@opencode-ai/plugin" {
 
   export interface AuthHook {
     provider: string
+    loader?: (auth: () => Promise<any>, provider: any) => Promise<Record<string, any>>
     methods: AuthMethod[]
   }
 
