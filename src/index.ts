@@ -1,14 +1,13 @@
 import type { Plugin } from "@opencode-ai/plugin"
 
-const REGOLO_CONFIGS_REPO = "regolo-ai/opencode-configs"
 const REGOLO_API_BASE = "https://api.regolo.ai/v1"
+const CONFIGS_BASE_URL =
+  "https://raw.githubusercontent.com/regolo-ai/opencode-configs/main"
+
 const OPENCODE_CONFIG_DIR = () =>
   process.env.XDG_CONFIG_HOME
     ? `${process.env.XDG_CONFIG_HOME}/opencode`
     : `${process.env.HOME}/.config/opencode`
-
-const GITHUB_RAW = (path: string) =>
-  `https://raw.githubusercontent.com/${REGOLO_CONFIGS_REPO}/main/${path}`
 
 async function fetchJSON<T>(url: string): Promise<T | null> {
   try {
@@ -33,49 +32,15 @@ function writeFile(path: string, data: Record<string, any>): boolean {
   try {
     const fs = require("fs")
     const dir = path.substring(0, path.lastIndexOf("/"))
-    if (!fs.existsSync(dir)) {
-      fs.mkdirSync(dir, { recursive: true })
-    }
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
     fs.writeFileSync(path, JSON.stringify(data, null, 2) + "\n")
     return true
-  } catch (err) {
-    console.log(`[opencode-regolo] Write error: ${err}`)
+  } catch {
     return false
   }
 }
 
-function sanitizeOptions(raw: Record<string, any>): Record<string, any> {
-  const options = { ...(raw.options || {}) }
-  delete options.headers
-  delete options.apiKey
-  return options
-}
-
-function mergeRemoteInto(
-  target: Record<string, any>,
-  remote: Record<string, any>
-): void {
-  if (remote.provider?.regolo) {
-    const provider = { ...remote.provider.regolo }
-    provider.options = sanitizeOptions(provider)
-    target.provider = target.provider || {}
-    target.provider.regolo = provider
-  }
-  if (remote.permission) {
-    target.permission = { ...target.permission, ...remote.permission }
-  }
-  if (remote.mcp) {
-    target.mcp = { ...target.mcp, ...remote.mcp }
-  }
-  if (remote.compaction && !target.compaction) {
-    target.compaction = remote.compaction
-  }
-  if (remote.watcher && !target.watcher) {
-    target.watcher = remote.watcher
-  }
-}
-
-export const RegoloPlugin: Plugin = async (ctx) => {
+export const RegoloPlugin: Plugin = async () => {
   return {
     auth: {
       provider: "regolo",
@@ -119,60 +84,77 @@ export const RegoloPlugin: Plugin = async (ctx) => {
         },
       ],
     },
-
-    config: async (input) => {
-      const remoteConfig = await fetchJSON<Record<string, any>>(
-        GITHUB_RAW("opencode.json")
-      )
-      if (!remoteConfig) {
-        console.log("[opencode-regolo] Failed to download opencode.json")
-        return
-      }
-
-      mergeRemoteInto(input, remoteConfig)
-
-      const configPath = `${OPENCODE_CONFIG_DIR()}/opencode.json`
-      const diskConfig = readFile(configPath) || {}
-      mergeRemoteInto(diskConfig, remoteConfig)
-      const ok = writeFile(configPath, diskConfig)
-      console.log(
-        `[opencode-regolo] ${ok ? "Updated" : "Failed to update"} ${configPath}`
-      )
-
-      const agentPath = `${OPENCODE_CONFIG_DIR()}/oh-my-openagent.json`
-      const remoteAgent = await fetchJSON<Record<string, any>>(
-        GITHUB_RAW("oh-my-opencode.json")
-      )
-      if (!remoteAgent) {
-        console.log("[opencode-regolo] Failed to download oh-my-opencode.json")
-        return
-      }
-
-      const existingAgent = readFile(agentPath)
-      if (!existingAgent) {
-        console.log(
-          `[opencode-regolo] ${agentPath} not found, skipping agent merge`
-        )
-        return
-      }
-
-      const merged = { ...existingAgent }
-      if (remoteAgent.agents)
-        merged.agents = { ...merged.agents, ...remoteAgent.agents }
-      if (remoteAgent.categories)
-        merged.categories = { ...merged.categories, ...remoteAgent.categories }
-      if (remoteAgent.background_task)
-        merged.background_task = {
-          ...merged.background_task,
-          ...remoteAgent.background_task,
-        }
-
-      const agentOk = writeFile(agentPath, merged)
-      console.log(
-        `[opencode-regolo] ${agentOk ? "Updated" : "Failed to update"} ${agentPath}`
-      )
-    },
   }
+}
+
+export async function setup(): Promise<string[]> {
+  const results: string[] = []
+  const dir = OPENCODE_CONFIG_DIR()
+
+  const remote = await fetchJSON<Record<string, any>>(
+    `${CONFIGS_BASE_URL}/opencode.json`
+  )
+  if (!remote?.provider?.regolo) {
+    results.push("✗ Failed to download config from regolo-ai/opencode-configs")
+    return results
+  }
+
+  const provider = { ...remote.provider.regolo }
+  const options = { ...(provider.options || {}) }
+  delete options.headers
+  delete options.apiKey
+  provider.options = options
+
+  const configPath = `${dir}/opencode.json`
+  const disk = readFile(configPath) || {}
+  disk.provider = disk.provider || {}
+  disk.provider.regolo = provider
+  if (remote.permission) disk.permission = { ...disk.permission, ...remote.permission }
+  if (remote.mcp && !disk.mcp) disk.mcp = remote.mcp
+  if (remote.compaction && !disk.compaction) disk.compaction = remote.compaction
+  if (remote.watcher && !disk.watcher) disk.watcher = remote.watcher
+
+  const ok = writeFile(configPath, disk)
+  const models = Object.keys(provider.models || {})
+  results.push(
+    ok
+      ? `✓ Updated ${configPath} (${models.length} models: ${models.join(", ")})`
+      : `✗ Failed to write ${configPath}`
+  )
+
+  const remoteAgent = await fetchJSON<Record<string, any>>(
+    `${CONFIGS_BASE_URL}/oh-my-opencode.json`
+  )
+  if (!remoteAgent) {
+    results.push("✗ Failed to download oh-my-opencode.json")
+    return results
+  }
+
+  const agentPath = `${dir}/oh-my-openagent.json`
+  const existingAgent = readFile(agentPath)
+  if (!existingAgent) {
+    results.push("ℹ oh-my-openagent not installed — skipping agent config")
+    return results
+  }
+
+  if (remoteAgent.agents)
+    existingAgent.agents = { ...existingAgent.agents, ...remoteAgent.agents }
+  if (remoteAgent.categories)
+    existingAgent.categories = { ...existingAgent.categories, ...remoteAgent.categories }
+  if (remoteAgent.background_task)
+    existingAgent.background_task = {
+      ...existingAgent.background_task,
+      ...remoteAgent.background_task,
+    }
+
+  const agentOk = writeFile(agentPath, existingAgent)
+  results.push(
+    agentOk
+      ? `✓ Updated ${agentPath}`
+      : `✗ Failed to write ${agentPath}`
+  )
+
+  return results
 }
 
 export default RegoloPlugin

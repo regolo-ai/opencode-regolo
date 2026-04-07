@@ -35,7 +35,7 @@ Models are referenced as `regolo/<model-id>` in OpenCode (e.g., `regolo/qwen3-co
 3. Create a new key (select "All models" for full access)
 4. Copy the key
 
-### 3. Install the Plugin
+### 2. Install the Plugin
 
 **Option A: From npm** (if published)
 
