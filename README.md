@@ -53,7 +53,7 @@ Add to your `opencode.json`:
 
 ```jsonc
 {
-  "plugin": ["opencode-regolo"]
+  "plugin": ["opencode-regolo@latest"]
 }
 ```
 
