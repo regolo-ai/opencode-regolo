@@ -8,52 +8,12 @@ declare module "@opencode-ai/plugin" {
     $: any
   }
 
-  export interface ToolContext {
-    sessionID: string
-    messageID: string
-    agent: string
-    directory: string
-    worktree: string
-    abort: AbortSignal
-    metadata(input: { title?: string; metadata?: Record<string, any> }): void
-    ask(input: {
-      permission: string
-      patterns: string[]
-      always: string[]
-      metadata: Record<string, any>
-    }): Promise<void>
-  }
-
-  export interface ToolDefinition {
-    description: string
-    args: any
-    execute(args: any, context: ToolContext): Promise<string>
-  }
-
-  export interface Hooks {
-    event?: (input: { event: any }) => Promise<void>
-    config?: (input: any) => Promise<void>
-    tool?: { [key: string]: ToolDefinition }
-    auth?: AuthHook
-    provider?: ProviderHook
-    "chat.message"?: any
-    "chat.params"?: any
-    "chat.headers"?: any
-    "permission.ask"?: any
-    "tool.execute.before"?: any
-    "tool.execute.after"?: any
-    "tool.definition"?: any
-    "shell.env"?: any
-    "command.execute.before"?: any
-    "experimental.chat.messages.transform"?: any
-    "experimental.chat.system.transform"?: any
-    "experimental.session.compacting"?: any
-    "experimental.text.complete"?: any
-  }
-
   export interface AuthHook {
     provider: string
-    loader?: (auth: () => Promise<any>, provider: any) => Promise<Record<string, any>>
+    loader?: (
+      getAuth: () => Promise<any>,
+      provider?: any
+    ) => Promise<Record<string, any>>
     methods: AuthMethod[]
   }
 
@@ -84,7 +44,6 @@ declare module "@opencode-ai/plugin" {
         placeholder?: string
         validate?: (value: string) => string | undefined
         condition?: (inputs: Record<string, string>) => boolean
-        when?: { key: string; op: "eq" | "neq"; value: string }
       }
     | {
         type: "select"
@@ -96,7 +55,6 @@ declare module "@opencode-ai/plugin" {
           hint?: string
         }>
         condition?: (inputs: Record<string, string>) => boolean
-        when?: { key: string; op: "eq" | "neq"; value: string }
       }
 
   export interface AuthOAuthResult {
@@ -134,26 +92,13 @@ declare module "@opencode-ai/plugin" {
         >)
   }
 
-  export interface ProviderHook {
-    id: string
-    models?: (provider: any, ctx: { auth?: any }) => Promise<Record<string, any>>
+  export interface Hooks {
+    config?: (input: any) => Promise<void>
+    auth?: AuthHook
   }
 
   export type Plugin = (
     input: PluginInput,
     options?: Record<string, unknown>
   ) => Promise<Hooks>
-
-  export function tool<Args extends Record<string, any>>(input: {
-    description: string
-    args: Args
-    execute(
-      args: { [K in keyof Args]: any },
-      context: ToolContext
-    ): Promise<string>
-  }): ToolDefinition
-
-  export namespace tool {
-    const schema: any
-  }
 }

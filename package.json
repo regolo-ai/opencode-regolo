@@ -34,13 +34,10 @@
     "url": "git+https://github.com/regolo-ai/opencode-regolo.git"
   },
   "homepage": "https://github.com/regolo-ai/opencode-regolo#readme",
-  "peerDependencies": {
-    "zod": "^3.0.0"
-  },
+  "peerDependencies": {},
   "devDependencies": {
     "@types/node": "^22.19.17",
-    "typescript": "^5.7.0",
-    "zod": "^3.0.0"
+    "typescript": "^5.7.0"
   },
   "peerDependenciesMeta": {
     "opencode": {

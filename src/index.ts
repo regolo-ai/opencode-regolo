@@ -1,13 +1,20 @@
 import type { Plugin } from "@opencode-ai/plugin"
-import { tool } from "@opencode-ai/plugin"
 
 const REGOLO_CONFIGS_REPO = "regolo-ai/opencode-configs"
 const REGOLO_CONFIGS_BRANCH = "main"
 const REGOLO_API_BASE = "https://api.regolo.ai/v1"
-const OPENCODE_GLOBAL_DIR = () =>
-  process.env.XDG_CONFIG_HOME
+const OPENCODE_CONFIG_PATH = () => {
+  const dir = process.env.XDG_CONFIG_HOME
     ? `${process.env.XDG_CONFIG_HOME}/opencode`
     : `${process.env.HOME}/.config/opencode`
+  return `${dir}/opencode.json`
+}
+const OPENAGENT_CONFIG_PATH = () => {
+  const dir = process.env.XDG_CONFIG_HOME
+    ? `${process.env.XDG_CONFIG_HOME}/opencode`
+    : `${process.env.HOME}/.config/opencode`
+  return `${dir}/oh-my-openagent.json`
+}
 
 const GITHUB_RAW = (path: string) =>
   `https://raw.githubusercontent.com/${REGOLO_CONFIGS_REPO}/${REGOLO_CONFIGS_BRANCH}/${path}`
@@ -22,58 +29,47 @@ async function fetchJSON<T>(url: string): Promise<T | null> {
   }
 }
 
-function detectOpenAgentConfig(): string | null {
-  const dir = OPENCODE_GLOBAL_DIR()
-  const configPath = `${dir}/oh-my-openagent.json`
+function readFile(path: string): Record<string, any> | null {
   try {
     const fs = require("fs")
-    if (fs.existsSync(configPath)) return configPath
-  } catch {}
-  return null
-}
-
-function readOpenAgentConfig(path: string): Record<string, any> | null {
-  try {
-    const fs = require("fs")
-    const content = fs.readFileSync(path, "utf-8")
-    return JSON.parse(content)
+    return JSON.parse(fs.readFileSync(path, "utf-8"))
   } catch {
     return null
   }
 }
 
-function writeOpenAgentConfig(
-  path: string,
-  config: Record<string, any>
-): boolean {
+function writeFile(path: string, data: Record<string, any>): boolean {
   try {
     const fs = require("fs")
-    fs.writeFileSync(path, JSON.stringify(config, null, 2) + "\n")
+    const dir = path.substring(0, path.lastIndexOf("/"))
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true })
+    }
+    fs.writeFileSync(path, JSON.stringify(data, null, 2) + "\n")
     return true
   } catch {
     return false
   }
 }
 
-async function downloadOpenCodeConfig(): Promise<Record<string, any> | null> {
-  return fetchJSON<Record<string, any>>(GITHUB_RAW("opencode.json"))
-}
-
-async function downloadOpenAgentConfig(): Promise<Record<string, any> | null> {
-  return fetchJSON<Record<string, any>>(
-    GITHUB_RAW("oh-my-opencode.json")
-  )
+function fileExists(path: string): boolean {
+  try {
+    const fs = require("fs")
+    return fs.existsSync(path)
+  } catch {
+    return false
+  }
 }
 
 export const RegoloPlugin: Plugin = async (ctx) => {
   return {
     auth: {
       provider: "regolo",
-      loader: async (getAuth, provider) => {
+      loader: async (getAuth) => {
         const auth = await getAuth()
         if (!auth || auth.type !== "api") {
           throw new Error(
-            "No API key found. Run '/connect' and pick 'Regolo' to set up your Regolo AI connection."
+            "No Regolo API key found. Run '/connect' and pick 'Regolo' to set up."
           )
         }
         return {
@@ -122,7 +118,9 @@ export const RegoloPlugin: Plugin = async (ctx) => {
     },
 
     config: async (input) => {
-      const remoteConfig = await downloadOpenCodeConfig()
+      const remoteConfig = await fetchJSON<Record<string, any>>(
+        GITHUB_RAW("opencode.json")
+      )
       if (!remoteConfig) return
 
       if (remoteConfig.provider?.regolo) {
@@ -138,138 +136,73 @@ export const RegoloPlugin: Plugin = async (ctx) => {
       if (remoteConfig.permission) {
         input.permission = { ...input.permission, ...remoteConfig.permission }
       }
-
       if (remoteConfig.mcp) {
         input.mcp = { ...input.mcp, ...remoteConfig.mcp }
       }
-
       if (remoteConfig.compaction) {
         input.compaction = remoteConfig.compaction
       }
-
       if (remoteConfig.watcher) {
         input.watcher = remoteConfig.watcher
       }
-    },
 
-    tool: {
-      "regolo-setup": tool({
-        description:
-          "Download and apply Regolo AI configuration. Fetches opencode.json from regolo-ai/opencode-configs and merges oh-my-openagent config if detected.",
-        args: {
-          includeOpenAgent: tool.schema
-            .boolean()
-            .describe(
-              "Also merge the oh-my-openagent config (default: true)"
-            )
-            .default(true),
-        },
-        async execute(args) {
-          const includeOpenAgent = args.includeOpenAgent !== false
-          const results: string[] = []
+      const configPath = OPENCODE_CONFIG_PATH()
+      const existing = readFile(configPath) || {}
+      const toWrite = { ...existing }
 
-          const remoteConfig = await downloadOpenCodeConfig()
-          if (remoteConfig?.provider?.regolo) {
-            const models = Object.keys(
-              remoteConfig.provider.regolo.models || {}
-            )
-            results.push(
-              `✓ Downloaded opencode.json with ${models.length} models: ${models.join(", ")}`
-            )
-          } else {
-            results.push(
-              "✗ Failed to download opencode.json from regolo-ai/opencode-configs"
-            )
-          }
+      if (remoteConfig.provider?.regolo) {
+        const provider = { ...remoteConfig.provider.regolo }
+        const options = { ...(provider.options || {}) }
+        delete options.headers
+        delete options.apiKey
+        provider.options = options
+        toWrite.provider = toWrite.provider || {}
+        toWrite.provider.regolo = provider
+      }
 
-          results.push(
-            "ℹ API key is managed by OpenCode vault — use /connect to set it up"
-          )
+      if (remoteConfig.permission && !toWrite.permission) {
+        toWrite.permission = remoteConfig.permission
+      }
+      if (remoteConfig.mcp && !toWrite.mcp) {
+        toWrite.mcp = remoteConfig.mcp
+      }
+      if (remoteConfig.compaction && !toWrite.compaction) {
+        toWrite.compaction = remoteConfig.compaction
+      }
+      if (remoteConfig.watcher && !toWrite.watcher) {
+        toWrite.watcher = remoteConfig.watcher
+      }
 
-          if (includeOpenAgent) {
-            const agentConfig = await downloadOpenAgentConfig()
-            if (agentConfig) {
-              const openAgentPath = detectOpenAgentConfig()
-              if (openAgentPath) {
-                const existing = readOpenAgentConfig(openAgentPath)
-                if (existing) {
-                  const merged = { ...existing }
-                  if (agentConfig.agents)
-                    merged.agents = {
-                      ...merged.agents,
-                      ...agentConfig.agents,
-                    }
-                  if (agentConfig.categories)
-                    merged.categories = {
-                      ...merged.categories,
-                      ...agentConfig.categories,
-                    }
-                  if (agentConfig.background_task)
-                    merged.background_task = {
-                      ...merged.background_task,
-                      ...agentConfig.background_task,
-                    }
+      writeFile(configPath, toWrite)
 
-                  const written = writeOpenAgentConfig(openAgentPath, merged)
-                  if (written) {
-                    const agents = Object.keys(agentConfig.agents || {})
-                    const categories = Object.keys(
-                      agentConfig.categories || {}
-                    )
-                    results.push(`✓ Updated ${openAgentPath}`)
-                    results.push(
-                      `  Merged ${agents.length} agent models: ${agents.join(", ")}`
-                    )
-                    results.push(
-                      `  Merged ${categories.length} category models: ${categories.join(", ")}`
-                    )
-                  } else {
-                    results.push(
-                      `✗ Failed to write ${openAgentPath} — permission denied?`
-                    )
-                  }
-                } else {
-                  results.push(`✗ Failed to read existing ${openAgentPath}`)
-                }
-              } else {
-                results.push(
-                  "ℹ oh-my-openagent not detected. Install it, then re-run regolo-setup"
-                )
-                results.push(
-                  "  Or manually copy: https://github.com/regolo-ai/opencode-configs/blob/main/oh-my-opencode.json"
-                )
+      const agentPath = OPENAGENT_CONFIG_PATH()
+      if (fileExists(agentPath)) {
+        const remoteAgent = await fetchJSON<Record<string, any>>(
+          GITHUB_RAW("oh-my-opencode.json")
+        )
+        if (remoteAgent) {
+          const existingAgent = readFile(agentPath)
+          if (existingAgent) {
+            const merged = { ...existingAgent }
+            if (remoteAgent.agents) {
+              merged.agents = { ...merged.agents, ...remoteAgent.agents }
+            }
+            if (remoteAgent.categories) {
+              merged.categories = {
+                ...merged.categories,
+                ...remoteAgent.categories,
               }
-            } else {
-              results.push("✗ Failed to download oh-my-opencode.json")
             }
+            if (remoteAgent.background_task) {
+              merged.background_task = {
+                ...merged.background_task,
+                ...remoteAgent.background_task,
+              }
+            }
+            writeFile(agentPath, merged)
           }
-
-          return results.join("\n")
-        },
-      }),
-
-      "regolo-models": tool({
-        description:
-          "List all available models on Regolo AI by querying the live API.",
-        args: {},
-        async execute() {
-          try {
-            const res = await fetch(`${REGOLO_API_BASE}/models`, {
-              headers: { Accept: "application/json" },
-            })
-            if (!res.ok) {
-              return `Error: ${res.status} ${res.statusText}`
-            }
-            const data = (await res.json()) as {
-              data: Array<{ id: string }>
-            }
-            const models = data.data.map((m) => m.id).sort()
-            return `Available Regolo AI models (${models.length}):\n${models.map((m) => `  • ${m}`).join("\n")}`
-          } catch (err: any) {
-            return `Error fetching models: ${err.message}`
-          }
-        },
-      }),
+        }
+      }
     },
   }
 }
