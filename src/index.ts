@@ -40,6 +40,10 @@ function writeFile(path: string, data: Record<string, any>): boolean {
   }
 }
 
+function regoloAlreadyConfigured(disk: Record<string, any>): boolean {
+  return !!disk?.provider?.regolo?.models
+}
+
 export const RegoloPlugin: Plugin = async () => {
   return {
     auth: {
@@ -56,12 +60,12 @@ export const RegoloPlugin: Plugin = async () => {
       methods: [
         {
           type: "api",
-          label: "Regolo AI API Key",
+          label: "Regolo AI API Key Name",
           prompts: [
             {
               type: "text",
               key: "apiKey",
-              message: "Enter your Regolo AI API key",
+              message: "API key",
               placeholder: "sk-...",
               validate: (value: string) => {
                 if (!value || value.trim().length === 0)
@@ -84,77 +88,53 @@ export const RegoloPlugin: Plugin = async () => {
         },
       ],
     },
+
+    config: async () => {
+      const dir = OPENCODE_CONFIG_DIR()
+      const configPath = `${dir}/opencode.json`
+      const disk = readFile(configPath)
+
+      const remote = await fetchJSON<Record<string, any>>(
+        `${CONFIGS_BASE_URL}/opencode.json`
+      )
+      if (!remote?.provider?.regolo) return
+
+      const provider = { ...remote.provider.regolo }
+      const options = { ...(provider.options || {}) }
+      delete options.headers
+      delete options.apiKey
+      provider.options = options
+
+      const target = disk || {}
+      target.provider = target.provider || {}
+      target.provider.regolo = provider
+      if (remote.permission) target.permission = { ...target.permission, ...remote.permission }
+      if (remote.mcp && !target.mcp) target.mcp = remote.mcp
+      if (remote.compaction && !target.compaction) target.compaction = remote.compaction
+      if (remote.watcher && !target.watcher) target.watcher = remote.watcher
+      writeFile(configPath, target)
+
+      const remoteAgent = await fetchJSON<Record<string, any>>(
+        `${CONFIGS_BASE_URL}/oh-my-opencode.json`
+      )
+      if (!remoteAgent) return
+
+      const agentPath = `${dir}/oh-my-openagent.json`
+      const existingAgent = readFile(agentPath)
+      if (!existingAgent) return
+
+      if (remoteAgent.agents)
+        existingAgent.agents = { ...existingAgent.agents, ...remoteAgent.agents }
+      if (remoteAgent.categories)
+        existingAgent.categories = { ...existingAgent.categories, ...remoteAgent.categories }
+      if (remoteAgent.background_task)
+        existingAgent.background_task = {
+          ...existingAgent.background_task,
+          ...remoteAgent.background_task,
+        }
+      writeFile(agentPath, existingAgent)
+    },
   }
-}
-
-export async function setup(): Promise<string[]> {
-  const results: string[] = []
-  const dir = OPENCODE_CONFIG_DIR()
-
-  const remote = await fetchJSON<Record<string, any>>(
-    `${CONFIGS_BASE_URL}/opencode.json`
-  )
-  if (!remote?.provider?.regolo) {
-    results.push("✗ Failed to download config from regolo-ai/opencode-configs")
-    return results
-  }
-
-  const provider = { ...remote.provider.regolo }
-  const options = { ...(provider.options || {}) }
-  delete options.headers
-  delete options.apiKey
-  provider.options = options
-
-  const configPath = `${dir}/opencode.json`
-  const disk = readFile(configPath) || {}
-  disk.provider = disk.provider || {}
-  disk.provider.regolo = provider
-  if (remote.permission) disk.permission = { ...disk.permission, ...remote.permission }
-  if (remote.mcp && !disk.mcp) disk.mcp = remote.mcp
-  if (remote.compaction && !disk.compaction) disk.compaction = remote.compaction
-  if (remote.watcher && !disk.watcher) disk.watcher = remote.watcher
-
-  const ok = writeFile(configPath, disk)
-  const models = Object.keys(provider.models || {})
-  results.push(
-    ok
-      ? `✓ Updated ${configPath} (${models.length} models: ${models.join(", ")})`
-      : `✗ Failed to write ${configPath}`
-  )
-
-  const remoteAgent = await fetchJSON<Record<string, any>>(
-    `${CONFIGS_BASE_URL}/oh-my-opencode.json`
-  )
-  if (!remoteAgent) {
-    results.push("✗ Failed to download oh-my-opencode.json")
-    return results
-  }
-
-  const agentPath = `${dir}/oh-my-openagent.json`
-  const existingAgent = readFile(agentPath)
-  if (!existingAgent) {
-    results.push("ℹ oh-my-openagent not installed — skipping agent config")
-    return results
-  }
-
-  if (remoteAgent.agents)
-    existingAgent.agents = { ...existingAgent.agents, ...remoteAgent.agents }
-  if (remoteAgent.categories)
-    existingAgent.categories = { ...existingAgent.categories, ...remoteAgent.categories }
-  if (remoteAgent.background_task)
-    existingAgent.background_task = {
-      ...existingAgent.background_task,
-      ...remoteAgent.background_task,
-    }
-
-  const agentOk = writeFile(agentPath, existingAgent)
-  results.push(
-    agentOk
-      ? `✓ Updated ${agentPath}`
-      : `✗ Failed to write ${agentPath}`
-  )
-
-  return results
 }
 
 export default RegoloPlugin

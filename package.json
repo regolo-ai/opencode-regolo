@@ -1,6 +1,6 @@
 {
   "name": "opencode-regolo",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "OpenCode plugin for Regolo AI — adds regolo.ai as a provider with API key setup, model registration, and oh-my-openagent integration",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
