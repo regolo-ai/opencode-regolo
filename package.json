@@ -2,11 +2,22 @@
   "name": "opencode-regolo",
   "version": "1.0.0",
   "description": "OpenCode plugin for Regolo AI — adds regolo.ai as a provider with API key setup, model registration, and oh-my-openagent integration",
-  "main": "src/index.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "type": "module",
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch"
+    "dev": "tsc --watch",
+    "prepublishOnly": "tsc"
   },
   "keywords": [
     "opencode",
@@ -18,11 +29,19 @@
     "provider"
   ],
   "license": "GPL-3.0",
-  "peerDependencies": {
-    "opencode": ">=0.14.0"
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/regolo-ai/opencode-regolo.git"
   },
+  "homepage": "https://github.com/regolo-ai/opencode-regolo#readme",
+  "peerDependencies": {},
   "devDependencies": {
     "typescript": "^5.7.0",
     "@types/node": "^22.0.0"
+  },
+  "peerDependenciesMeta": {
+    "opencode": {
+      "optional": true
+    }
   }
 }
