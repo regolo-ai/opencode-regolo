@@ -35,16 +35,6 @@ Models are referenced as `regolo/<model-id>` in OpenCode (e.g., `regolo/qwen3-co
 3. Create a new key (select "All models" for full access)
 4. Copy the key
 
-### 2. Authorize via OpenCode
-
-Once the plugin is loaded, OpenCode will prompt you to connect the Regolo provider, or you can run:
-
-```
-/connect regolo
-```
-
-Enter your API key when prompted. OpenCode stores it securely in its built-in vault (`~/.local/share/opencode/auth.json`) — no environment variables needed.
-
 ### 3. Install the Plugin
 
 **Option A: From npm** (if published)
@@ -77,33 +67,21 @@ Add to your `opencode.json`:
    }
    ```
 
+### 3. Authorize via OpenCode
+
+Once the plugin is loaded, OpenCode will prompt you to connect the Regolo provider, or you can run:
+
+```
+/connect
+```
+
+Enter your API key when prompted. OpenCode stores it securely in its built-in vault (`~/.local/share/opencode/auth.json`) — no environment variables needed.
+
 ### 4. First-Time Setup
 
 Once the plugin is loaded, OpenCode will prompt you to connect the Regolo provider, or you can run `/connect` and search for `Regolo`. Enter your API key name and key — it's stored securely in OpenCode's built-in auth vault.
 
-## Usage
-
-### List Available Models
-
-Use the built-in tool to query live models from Regolo:
-
-```
-> /tool regolo-models
-```
-
-### Download Latest Configs
-
-Run the setup tool to fetch the latest configuration files from the regolo-ai/opencode-configs repo:
-
-```
-> /tool regolo-setup
-```
-
-This downloads:
-- `opencode.json` — provider config with all model definitions, MCP servers, permissions
-- `oh-my-opencode.json` — agent and category model assignments (for oh-my-openagent users)
-
-### Set Default Model
+### 5. Set Default Model
 
 In your `opencode.json`:
 
@@ -171,5 +149,5 @@ The plugin adds a `regolo` provider to OpenCode using the `@ai-sdk/openai-compat
 
 ## Requirements
 
-- [OpenCode](https://opencode.ai) >= 0.14.0
+- [OpenCode](https://opencode.ai)
 - A [Regolo AI](https://regolo.ai) account with an API key
