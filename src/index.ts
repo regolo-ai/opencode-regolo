@@ -40,13 +40,39 @@ function writeFile(path: string, data: Record<string, any>): boolean {
   }
 }
 
+function removePluginFromConfig(projectDir: string): void {
+  const fs = require("fs")
+  const configPath = `${projectDir}/opencode.json`
+  try {
+    if (!fs.existsSync(configPath)) return
+    const config = JSON.parse(fs.readFileSync(configPath, "utf-8"))
+    if (!config.plugin) return
+
+    const plugins = Array.isArray(config.plugin) ? config.plugin : [config.plugin]
+    const filtered = plugins.filter(
+      (p: any) =>
+        !p.includes("opencode-regolo") &&
+        !p.includes("opencode-regolo")
+    )
+
+    if (filtered.length === plugins.length) return
+
+    config.plugin = filtered.length === 1 ? filtered[0] : filtered
+    fs.writeFileSync(configPath, JSON.stringify(config, null, 2) + "\n")
+    console.log("[opencode-regolo] Removed plugin from opencode.json")
+  } catch {}
+}
+
 function regoloAlreadyConfigured(disk: Record<string, any>): boolean {
   return !!disk?.provider?.regolo?.models
 }
 
-export const RegoloPlugin: Plugin = async () => {
+export const RegoloPlugin: Plugin = async (input) => {
+  const projectDir = input.directory || process.cwd()
+
   return {
     auth: {
+      id: "regolo",
       provider: "regolo",
       loader: async (getAuth) => {
         const auth = await getAuth()
@@ -59,6 +85,7 @@ export const RegoloPlugin: Plugin = async () => {
       },
       methods: [
         {
+          id: "api",
           type: "api",
           label: "Regolo AI API Key Name",
           prompts: [
@@ -133,6 +160,7 @@ export const RegoloPlugin: Plugin = async () => {
           ...remoteAgent.background_task,
         }
       writeFile(agentPath, existingAgent)
+      removePluginFromConfig(projectDir)
     },
   }
 }

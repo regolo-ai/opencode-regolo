@@ -4,23 +4,30 @@ An [OpenCode](https://opencode.ai) plugin that adds [Regolo AI](https://regolo.a
 
 It automatically downloads the latest provider configuration and model definitions from [regolo-ai/opencode-configs](https://github.com/regolo-ai/opencode-configs), handles API key authorization, and optionally configures [oh-my-openagent](https://github.com/code-yeongyu/oh-my-openagent) to use Regolo models.
 
+## ⚠️ One-Time Setup Plugin
+
+This plugin is **needed only for initial setup**. Once the provider configuration is saved to your local files:
+
+1. The plugin can be removed from `opencode.json`
+2. Regolo will continue to work because the config lives in `~/.config/opencode/opencode.json`
+
 ## Features
 
-- **Automatic provider setup** — downloads model definitions from the official regolo-ai/opencode-configs repository
+- **First-run setup** — downloads model definitions from the official repo, writes to local config
 - **API key authorization** — guides the user through getting and validating a Regolo API key
 - **Model registration** — adds all available Regolo models to OpenCode's provider config
-- **oh-my-openagent integration** — detects if oh-my-openagent is installed and suggests the companion config for agent/category model assignments
-- **Live model listing** — query the Regolo API directly to see currently available models
+- **oh-my-openagent integration** — detects if oh-my-openagent is installed and merges the companion config for agent/category model assignments
+- **One-time download** — after first setup, the plugin **removes itself** from opencode.json (zero network on subsequent runs)
 
 ## Models
 
-The plugin registers these models (fetched dynamically from the configs repo):
+The plugin registers these models:
 
 | Model ID | Context | Best For |
 |----------|---------|----------|
 | `qwen3.5-122b` | 120K | Main reasoning, multimodal (text + image) |
 | `qwen3-coder-next` | 240K | Fast coding, tool use |
-| `mistral-small-4-119b` | 120K | Balanced reasoning, multimodal (text + image)  |
+| `mistral-small-4-119b` | 120K | Balanced reasoning, multimodal (text + image) |
 | `minimax-m2.5` | 130K | Large context tasks |
 | `gpt-oss-120b` | 120K | Alternative reasoning |
 
@@ -51,7 +58,7 @@ Add to your `opencode.json`:
 
 1. Clone this repository:
    ```bash
-   git clone https://github.com/user/opencode-regolo.git
+   git clone https://github.com/regolo-ai/opencode-regolo.git
    cd opencode-regolo
    ```
 
@@ -67,19 +74,16 @@ Add to your `opencode.json`:
    }
    ```
 
-### 3. Authorize via OpenCode
+### 3. First Run (One-Time)
 
-Once the plugin is loaded, OpenCode will prompt you to connect the Regolo provider, or you can run:
+1. Restart OpenCode — the plugin:
+   - Downloads the config and writes it to `~/.config/opencode/opencode.json`
+   - Merges oh-my-openagent config if present
+   - **Automatically removes itself from opencode.json**
+2. Run `/connect regolo` and enter your API key when prompted
+3. OpenCode stores it securely in its built-in vault — no environment variables needed
 
-```
-/connect
-```
-
-Enter your API key when prompted. OpenCode stores it securely in its built-in vault (`~/.local/share/opencode/auth.json`) — no environment variables needed.
-
-### 4. First-Time Setup
-
-Once the plugin is loaded, OpenCode will prompt you to connect the Regolo provider, or you can run `/connect` and search for `Regolo`. Enter your API key name and key — it's stored securely in OpenCode's built-in auth vault.
+That\'s it! The Regolo provider is now saved in your local config and works without the plugin.
 
 ### 5. Set Default Model
 
@@ -109,43 +113,7 @@ If you use [oh-my-openagent](https://github.com/code-yeongyu/oh-my-openagent) (f
 | atlas | qwen3.5-122b | Knowledge management |
 | multimodal-looker | mistral-small-4-119b | Visual analysis |
 
-### Applying the openagent Config
-
-If `oh-my-openagent.json` exists in your OpenCode config directory (`~/.config/opencode/`), running `/tool regolo-setup` will **automatically merge** the Regolo model assignments into it — overwriting the `agents`, `categories`, and `background_task` sections with Regolo models while preserving any other settings you have.
-
-If oh-my-openagent is not detected, the setup tool will print a reminder to install it first.
-
-To manually apply the config:
-
-```bash
-curl -o ~/.config/opencode/oh-my-openagent.json \
-  https://raw.githubusercontent.com/regolo-ai/opencode-configs/main/oh-my-opencode.json
-```
-
-## Configuration Reference
-
-The plugin adds a `regolo` provider to OpenCode using the `@ai-sdk/openai-compatible` package:
-
-```jsonc
-{
-  "provider": {
-    "regolo": {
-      "npm": "@ai-sdk/openai-compatible",
-      "name": "Regolo",
-      "options": {
-        "baseURL": "https://api.regolo.ai/v1",
-        "timeout": 1200000,
-        "apiKey": "{auth:regolo}"
-      },
-      "models": {
-        "qwen3.5-122b": { ... },
-        "qwen3-coder-next": { ... },
-        // etc.
-      }
-    }
-  }
-}
-```
+On first run, if `oh-my-openagent.json` exists in your OpenCode config directory (`~/.config/opencode/`), the plugin **automatically merges** the Regolo model assignments into it — overwriting `agents`, `categories`, and `background_task` while preserving any other settings you have.
 
 ## Requirements
 
