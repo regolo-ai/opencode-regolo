@@ -28,7 +28,7 @@ The plugin registers these models:
 | `qwen3.5-122b` | 120K | Main reasoning, multimodal (text + image) |
 | `qwen3-coder-next` | 240K | Fast coding, tool use |
 | `mistral-small-4-119b` | 120K | Balanced reasoning, multimodal (text + image) |
-| `minimax-m2.5` | 130K | Large context tasks |
+| `gemma4-31b` | 100K | Balanced reasoning, multimodal (text + image) |
 | `gpt-oss-120b` | 120K | Alternative reasoning |
 
 Models are referenced as `regolo/<model-id>` in OpenCode (e.g., `regolo/qwen3-coder-next`).
@@ -114,6 +114,20 @@ If you use [oh-my-openagent](https://github.com/code-yeongyu/oh-my-openagent) (f
 | multimodal-looker | mistral-small-4-119b | Visual analysis |
 
 On first run, if `oh-my-openagent.json` exists in your OpenCode config directory (`~/.config/opencode/`), the plugin **automatically merges** the Regolo model assignments into it — overwriting `agents`, `categories`, and `background_task` while preserving any other settings you have.
+
+## oh-my-opencode-slim Integration
+
+This plugin also supports [oh-my-opencode-slim](https://github.com/alvinunreal/oh-my-opencode-slim) — a lightweight agent orchestration system focused on background specialist dispatch and scheduler-first workflows.
+
+| Agent | Model | Role |
+|-------|-------|------|
+| orchestrator | qwen3.5-122b | Master delegator & strategic coordinator |
+| explorer | qwen3-coder-next | Codebase reconnaissance & search |
+| librarian | qwen3-coder-next | External knowledge retrieval |
+| oracle | qwen3.5-122b | Strategic advisor / debugger |
+| designer | gemma4-31b | UI/UX implementation & visual polish |
+| fixer | qwen3.5-122b | Fast bounded implementation |
+| observer | mistral-small-4-119b | Visual analysis (images/PDFs) |
 
 ## Requirements
 

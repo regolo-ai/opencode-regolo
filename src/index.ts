@@ -141,25 +141,49 @@ export const RegoloPlugin: Plugin = async (input) => {
       if (remote.watcher && !target.watcher) target.watcher = remote.watcher
       writeFile(configPath, target)
 
+      // Merge oh-my-openagent config
       const remoteAgent = await fetchJSON<Record<string, any>>(
         `${CONFIGS_BASE_URL}/oh-my-opencode.json`
       )
-      if (!remoteAgent) return
-
-      const agentPath = `${dir}/oh-my-openagent.json`
-      const existingAgent = readFile(agentPath)
-      if (!existingAgent) return
-
-      if (remoteAgent.agents)
-        existingAgent.agents = { ...existingAgent.agents, ...remoteAgent.agents }
-      if (remoteAgent.categories)
-        existingAgent.categories = { ...existingAgent.categories, ...remoteAgent.categories }
-      if (remoteAgent.background_task)
-        existingAgent.background_task = {
-          ...existingAgent.background_task,
-          ...remoteAgent.background_task,
+      if (remoteAgent) {
+        const agentPath = `${dir}/oh-my-openagent.json`
+        const existingAgent = readFile(agentPath)
+        if (existingAgent) {
+          if (remoteAgent.agents)
+            existingAgent.agents = { ...existingAgent.agents, ...remoteAgent.agents }
+          if (remoteAgent.categories)
+            existingAgent.categories = { ...existingAgent.categories, ...remoteAgent.categories }
+          if (remoteAgent.background_task)
+            existingAgent.background_task = {
+              ...existingAgent.background_task,
+              ...remoteAgent.background_task,
+            }
+          writeFile(agentPath, existingAgent)
         }
-      writeFile(agentPath, existingAgent)
+      }
+
+      // Merge oh-my-opencode-slim config
+      const remoteSlim = await fetchJSON<Record<string, any>>(
+        `${CONFIGS_BASE_URL}/oh-my-opencode-slim.json`
+      )
+      if (remoteSlim) {
+        const slimPath = `${dir}/oh-my-opencode-slim.json`
+        const existingSlim = readFile(slimPath)
+        if (existingSlim) {
+          if (remoteSlim.agents)
+            existingSlim.agents = { ...existingSlim.agents, ...remoteSlim.agents }
+          if (remoteSlim.categories)
+            existingSlim.categories = { ...existingSlim.categories, ...remoteSlim.categories }
+          if (remoteSlim.background_task)
+            existingSlim.background_task = {
+              ...existingSlim.background_task,
+              ...remoteSlim.background_task,
+            }
+          writeFile(slimPath, existingSlim)
+          console.log("[opencode-regolo] Merged oh-my-opencode-slim config")
+        }
+      }
+
       removePluginFromConfig(projectDir)
     },
   }
